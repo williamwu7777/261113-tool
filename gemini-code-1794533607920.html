@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IMF 戰情室 | 2026 全球核武庫分佈情報</title>
+    <!-- 引入 Leaflet 地圖樣式與 JS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <!-- Google 字型：字體帶有強烈科技感 -->
+    <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@500;700;900&family=Noto+Sans+TC:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #05070b;
+            --panel-bg: rgba(10, 15, 25, 0.85);
+            --border-glow: rgba(184, 115, 51, 0.4);
+            --accent-bronze: #cd7f32;
+            --accent-gold: #e2a76f;
+            --text-main: #e0e6ed;
+            --text-dim: #8a99ad;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            font-family: 'Noto Sans TC', sans-serif;
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* 頂部導航 / 標題列：IMF 風格 */
+        header {
+            height: 70px;
+            background: linear-gradient(180deg, rgba(8,12,20,0.95) 0%, rgba(5,7,11,0.8) 100%);
+            border-bottom: 2px solid var(--accent-bronze);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 30px;
+            z-index: 1000;
+            box-shadow: 0 0 25px rgba(205, 127, 50, 0.2);
+        }
+
+        .header-title {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .logo-icon {
+            width: 14px;
+            height: 14px;
+            background-color: var(--accent-bronze);
+            box-shadow: 0 0 12px var(--accent-bronze);
+            animation: pulse-blink 1.5s infinite;
+        }
+
+        @keyframes pulse-blink {
+            0% { opacity: 0.3; transform: scale(0.9); }
+            50% { opacity: 1; transform: scale(1.2); }
+            100% { opacity: 0.3; transform: scale(0.9); }
+        }
+
+        h1 {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 1.3rem;
+            letter-spacing: 2px;
+            color: #fff;
+            text-transform: uppercase;
+        }
+
+        h1 span {
+            color: var(--accent-bronze);
+        }
+
+        .mission-status {
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 0.9rem;
+            color: var(--text-dim);
+            text-align: right;
+        }
+
+        .mission-status span {
+            color: #ff4d4d;
+            font-weight: bold;
+        }
+
+        /* 主容器：地圖與資訊面板並存 */
+        .main-container {
+            position: relative;
+            flex: 1;
+            width: 100%;
+        }
+
+        #map {
+            width: 100%;
+            height: 100%;
+            background-color: #030508;
+            z-index: 1;
+        }
+
+        /* 覆蓋 Leaflet 黑暗科技風格底圖 */
+        .leaflet-container {
+            background: #030508 !important;
+        }
+
+        /* 自訂浮動情報面板（左上角摘要） */
+        .intel-panel {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            width: 320px;
+            background: var(--panel-bg);
+            border: 1px solid var(--border-glow);
+            backdrop-filter: blur(8px);
+            padding: 20px;
+            z-index: 999;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.7);
+        }
+
+        .intel-panel h3 {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.85rem;
+            color: var(--accent-gold);
+            letter-spacing: 1px;
+            margin-bottom: 10px;
+            border-bottom: 1px dashed rgba(205,127,50,0.3);
+            padding-bottom: 6px;
+        }
+
+        .intel-stats {
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 0.9rem;
+            line-height: 1.6;
+            color: var(--text-main);
+        }
+
+        .intel-stats b {
+            color: #fff;
+            font-family: 'Orbitron', sans-serif;
+        }
+
+        /* 右下角圖例控制項：高科技風格 */
+        .legend-box {
+            position: absolute;
+            bottom: 30px;
+            right: 30px;
+            background: var(--panel-bg);
+            border: 1px solid var(--border-glow);
+            backdrop-filter: blur(8px);
+            padding: 15px 20px;
+            z-index: 999;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+            border-radius: 2px;
+        }
+
+        .legend-title {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.75rem;
+            letter-spacing: 1.5px;
+            color: var(--accent-gold);
+            margin-bottom: 10px;
+            text-transform: uppercase;
+        }
+
+        .legend-scale {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 0.85rem;
+            color: var(--text-main);
+        }
+
+        .legend-color {
+            width: 22px;
+            height: 12px;
+            border: 1px solid rgba(255,255,255,0.15);
+        }
+
+        /* 自訂地圖 Hover 提示框（Tooltip）樣式 */
+        .custom-tooltip {
+            background: rgba(8, 12, 20, 0.95) !important;
+            border: 1px solid var(--accent-bronze) !important;
+            color: #fff !important;
+            font-family: 'Noto Sans TC', sans-serif !important;
+            padding: 10px 14px !important;
+            box-shadow: 0 0 20px rgba(205, 127, 50, 0.4) !important;
+            border-radius: 0px !important;
+        }
+
+        .custom-tooltip .tooltip-country {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.95rem;
+            color: var(--accent-gold);
+            font-weight: bold;
+            margin-bottom: 4px;
+            letter-spacing: 1px;
+        }
+
+        .custom-tooltip .tooltip-count {
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 0.85rem;
+            color: #e0e6ed;
+        }
+
+        /* 掃描線特效，增加電影科技感 */
+        body::after {
+            content: " ";
+            display: block;
+            position: fixed;
+            top: 0; left: 0; bottom: 0; right: 0;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.03), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.03));
+            z-index: 99999;
+            background-size: 100% 3px, 6px 100%;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="header-title">
+            <div class="logo-icon"></div>
+            <h1>IMF GLOBAL INTELLIGENCE // <span>2026 核武庫分佈戰情室</span></h1>
+        </div>
+        <div class="mission-status">
+            SECURE_FEED: <span>ACTIVE</span> | SOURCE: SIPRI / FAS 2026
+        </div>
+    </header>
+
+    <div class="main-container">
+        <div id="map"></div>
+
+        <!-- 左上角情報摘要 -->
+        <div class="intel-panel">
+            <h3>GLOBAL SUMMARY</h3>
+            <div class="intel-stats">
+                全球總估計: <b>~12,187 枚</b><br>
+                現役部署: <b>~9,745 枚</b><br>
+                最高集中度: <b>美俄佔 86%</b><br>
+                情資基準年份: <b>2026.01</b>
+            </div>
+        </div>
+
+        <!-- 右下角圖例 -->
+        <div class="legend-box">
+            <div class="legend-title">戰術庫存量級 (枚)</div>
+            <div class="legend-scale">
+                <div class="legend-item"><div class="legend-color" style="background: #5c2c16;"></div>5,000+ (極高 / 美、俄)</div>
+                <div class="legend-item"><div class="legend-color" style="background: #8c4721;"></div>500 - 5,000 (高 / 中國)</div>
+                <div class="legend-item"><div class="legend-color" style="background: #b56536;"></div>100 - 500 (中 / 法、英、印、巴)</div>
+                <div class="legend-item"><div class="legend-color" style="background: #d49363;"></div>1 - 100 (低 / 以色列、北韓)</div>
+                <div class="legend-item"><div class="legend-color" style="background: #111a24;"></div>0 (無核武國家)</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 1. 初始化地圖（去除預設縮放控制，調整至最合適視角）
+        const map = L.map('map', {
+            zoomControl: false,
+            attributionControl: false
+        }).setView([25, 10], 2.5);
+
+        // 自訂暗色科技感底圖 (CartoDB Dark Matter 搭配棕色系調整濾鏡)
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+            maxZoom: 8,
+            minZoom: 2,
+            subdomains: 'abcd'
+        }).addTo(map);
+
+        // 2. 2026 官方最新權威估算數據 (依據 SIPRI / FAS 2026 報告)
+        const nuclearData = {
+            "Russia": { name: "俄羅斯", count: 5420 },
+            "United States of America": { name: "美國", count: 5042 },
+            "China": { name: "中國", count: 620 },
+            "France": { name: "法國", count: 290 },
+            "United Kingdom": { name: "英國", count: 225 },
+            "India": { name: "印度", count: 190 },
+            "Pakistan": { name: "巴基斯坦", count: 170 },
+            "Israel": { name: "以色列", count: 90 },
+            "North Korea": { name: "北韓", count: 50 }
+        };
+
+        // 3. 根據核彈數量對應棕色系深淺
+        function getColor(count) {
+            return count > 5000 ? '#5c2c16' :  // 極深棕 (美俄)
+                   count > 500 ? '#8c4721' :   // 深棕 (中國)
+                   count > 100 ? '#b56536' :   // 中棕 (英法印巴)
+                   count > 0   ? '#d49363' :   // 淺棕 (以、朝)
+                                 '#111a24';    // 無核武國家（暗藍灰，與背景融合）
+        }
+
+        // 4. 設定地圖國家多邊形樣式
+        function styleFeature(feature) {
+            const countryName = feature.properties.name;
+            const data = nuclearData[countryName];
+            const count = data ? data.count : 0;
+            
+            return {
+                fillColor: getColor(count),
+                weight: 1,
+                opacity: 0.8,
+                color: '#2a3b52',
+                dashArray: '3',
+                fillOpacity: 0.85
+            };
+        }
+
+        // 5. 滑鼠互動事件（Hover 高亮與 Tooltip 顯示）
+        function onEachFeature(feature, layer) {
+            const countryName = feature.properties.name;
+            const data = nuclearData[countryName];
+            const count = data ? data.count : 0;
+            const zhName = data ? data.name : countryName;
+
+            // 綁定動態 Tooltip（顯示中文名稱與核彈數）
+            const tooltipContent = `
+                <div class="tooltip-country">${zhName}</div>
+                <div class="tooltip-count">核彈庫存量：<b>${count}</b> 枚</div>
+            `;
+            
+            layer.bindTooltip(tooltipContent, {
+                direction: 'auto',
+                className: 'custom-tooltip',
+                sticky: true
+            });
+
+            layer.on({
+                mouseover: function (e) {
+                    const layer = e.target;
+                    layer.setStyle({
+                        weight: 2,
+                        color: '#e2a76f',
+                        fillOpacity: 1
+                    });
+                    layer.bringToFront();
+                },
+                mouseout: function (e) {
+                    geojsonLayer.resetStyle(e.target);
+                }
+            });
+        }
+
+        // 6. 載入世界各國 GeoJSON 邊界資料
+        let geojsonLayer;
+        fetch('https://raw.githubusercontent.com/datasets/geo-boundaries-world-110m/master/countries.geojson')
+            .then(response => response.json())
+            .then(data => {
+                geojsonLayer = L.geoJson(data, {
+                    style: styleFeature,
+                    onEachFeature: onEachFeature
+                }).addTo(map);
+            })
+            .catch(error => {
+                console.error('無法載入地理邊界資料:', error);
+            });
+    </script>
+</body>
+</html>
