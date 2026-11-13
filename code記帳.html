@@ -1,0 +1,1017 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#0F524B" />
+  <title>日常快速記帳 & 固定支出核對表</title>
+  
+  <!-- 載入 Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- 載入 Google Fonts (Inter + Noto Sans TC) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+
+  <!-- Tailwind 自訂色彩與字體設定 -->
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'Noto Sans TC', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
+          },
+          colors: {
+            tealPrimary: '#0F524B',
+            tealLight: '#156B62',
+            tealSoft: '#E7F2F0',
+            bgSoft: '#F3F6F5',
+          },
+          boxShadow: {
+            'card': '0 4px 20px -2px rgba(15, 82, 75, 0.06)',
+            'header': '0 10px 25px -5px rgba(15, 82, 75, 0.22)',
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    /* 基礎防呆與手機體驗優化 */
+    html, body {
+      background-color: #F3F6F5;
+      color: #1E293B;
+      -webkit-tap-highlight-color: transparent;
+      overscroll-behavior-y: none;
+    }
+
+    /* 隱藏 number input 的上下微調箭頭 */
+    input[type="number"]::-webkit-inner-spin-button,
+    input[type="number"]::-webkit-outer-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+    input[type="number"] {
+      -moz-appearance: textfield;
+    }
+
+    /* 防止 iOS 點擊 input 自動放大（確保字體大於等於 16px） */
+    input, select, textarea {
+      font-size: 16px !important;
+    }
+
+    /* 標籤切換與列表平滑動畫 */
+    .tab-content {
+      animation: fadeSlideUp 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    @keyframes fadeSlideUp {
+      from {
+        opacity: 0;
+        transform: translateY(6px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    /* 自訂捲軸（桌面預覽時更美觀） */
+    ::-webkit-scrollbar {
+      width: 4px;
+      height: 4px;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #CBD5E1;
+      border-radius: 9999px;
+    }
+
+    /* 支援 iPhone 底部安全區域 */
+    .pb-safe {
+      padding-bottom: calc(1.5rem + env(safe-area-inset-bottom));
+    }
+  </style>
+</head>
+<body class="min-h-screen flex justify-center bg-[#E8ECEB]">
+
+  <!-- 手機版型主容器：最大寬度 480px，桌面置中、手機滿版 -->
+  <div id="app" class="w-full max-w-[480px] min-h-screen bg-[#F3F6F5] relative flex flex-col shadow-xl pb-safe">
+
+    <!-- 頂部深青色漸層區塊 + 本月總支出統計卡片 -->
+    <header class="sticky top-0 z-30 bg-gradient-to-br from-[#0F524B] to-[#156B62] text-white px-4 pt-4 pb-5 rounded-b-[24px] shadow-header">
+      <!-- 頂部標題列 -->
+      <div class="flex items-center justify-between mb-3">
+        <div class="flex items-center gap-2">
+          <div class="w-8 h-8 rounded-xl bg-white/15 flex items-center justify-center backdrop-blur-sm">
+            <!-- 錢包 SVG 圖示 -->
+            <svg class="w-5 h-5 text-emerald-200" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M21 12a2.25 2.25 0 00-2.25-2.25H15a3 3 0 11-6 0H5.25A2.25 2.25 0 003 12m18 0v6a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 18v-6m18 0V9M3 12V9m18 0a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 9m18 0V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v3" />
+            </svg>
+          </div>
+          <div>
+            <h1 class="text-base font-bold tracking-wide leading-tight">日常記帳 & 固定核對</h1>
+            <p id="currentMonthLabel" class="text-xs text-emerald-200/90 font-medium">2026年 11月 帳務總覽</p>
+          </div>
+        </div>
+        <span class="text-[11px] bg-white/15 px-2.5 py-1 rounded-full font-medium tracking-wider backdrop-blur-sm">
+          本機自動儲存
+        </span>
+      </div>
+
+      <!-- 總支出核心數字區 -->
+      <div class="bg-white/10 backdrop-blur-md border border-white/15 rounded-[16px] p-4">
+        <div class="flex items-baseline justify-between">
+          <span class="text-xs font-medium text-emerald-100 tracking-wide">本月已確認總支出</span>
+          <span class="text-[11px] text-emerald-200/80">固定已繳 + 日常支出</span>
+        </div>
+        <div class="mt-1 flex items-baseline gap-1.5">
+          <span class="text-lg font-semibold text-emerald-200">NT$</span>
+          <span id="totalMonthExpense" class="text-3xl sm:text-4xl font-extrabold tracking-tight tabular-nums">0</span>
+        </div>
+
+        <!-- 雙欄明細統計 -->
+        <div class="grid grid-cols-2 gap-3 mt-3.5 pt-3 border-t border-white/15">
+          <div>
+            <div class="flex items-center justify-between text-[11px] text-emerald-100/90 mb-0.5">
+              <span>已繳固定支出</span>
+              <span id="fixedCountBadge" class="bg-white/20 px-1.5 py-0.2 rounded text-[10px] font-semibold">0 / 0</span>
+            </div>
+            <div class="text-base font-bold tabular-nums">
+              NT$ <span id="totalFixedPaid">0</span>
+            </div>
+          </div>
+          <div class="border-l border-white/15 pl-3">
+            <div class="flex items-center justify-between text-[11px] text-emerald-100/90 mb-0.5">
+              <span>日常變動支出</span>
+              <span id="dailyCountBadge" class="bg-white/20 px-1.5 py-0.2 rounded text-[10px] font-semibold">0 筆</span>
+            </div>
+            <div class="text-base font-bold tabular-nums">
+              NT$ <span id="totalDailyExpense">0</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- 分頁切換控制器 (Segmented Control) -->
+    <nav class="px-4 mt-4 mb-3">
+      <div class="bg-white p-1.5 rounded-[16px] shadow-card grid grid-cols-2 gap-1.5 border border-slate-100">
+        <button 
+          id="tabBtnFixed" 
+          type="button"
+          onclick="switchTab('fixed')"
+          class="min-h-[46px] rounded-[12px] font-bold text-sm flex items-center justify-center gap-2 transition-all duration-200 bg-[#0F524B] text-white shadow-sm">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <span>每月固定支出</span>
+        </button>
+
+        <button 
+          id="tabBtnDaily" 
+          type="button"
+          onclick="switchTab('daily')"
+          class="min-h-[46px] rounded-[12px] font-bold text-sm flex items-center justify-center gap-2 transition-all duration-200 text-slate-600 hover:bg-slate-50">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125" />
+          </svg>
+          <span>日常隨手記</span>
+        </button>
+      </div>
+    </nav>
+
+    <!-- 主內容區 -->
+    <main class="flex-1 px-4">
+
+      <!-- ========================================================= -->
+      <!-- 分頁一：每月固定支出核對表 (預設顯示)                        -->
+      <!-- ========================================================= -->
+      <section id="sectionFixed" class="tab-content space-y-3.5">
+        
+        <!-- 進度與操作提示列 -->
+        <div class="bg-white rounded-[16px] p-3.5 shadow-card border border-slate-100 flex items-center justify-between">
+          <div>
+            <p class="text-xs text-slate-500 font-medium">固定支出核對進度</p>
+            <p class="text-sm font-bold text-slate-800 mt-0.5">
+              預計總額：<span class="text-[#0F524B] tabular-nums">NT$ <span id="fixedExpectedTotal">0</span></span>
+            </p>
+          </div>
+          <button 
+            type="button"
+            onclick="openFixedModal()"
+            class="min-h-[44px] px-4 rounded-[12px] bg-[#E7F2F0] hover:bg-[#d5eae6] active:scale-95 text-[#0F524B] font-bold text-sm flex items-center gap-1.5 transition-all">
+            <svg class="w-4 h-4 stroke-[2.5]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+            </svg>
+            <span>新增項目</span>
+          </button>
+        </div>
+
+        <!-- 固定支出項目清單容器 -->
+        <div id="fixedListContainer" class="space-y-2.5">
+          <!-- 動態產生固定支出卡片 -->
+        </div>
+
+        <!-- 開啟新月份按鈕（一鍵全部重置為未繳） -->
+        <div class="pt-3 pb-4">
+          <button 
+            type="button"
+            onclick="openResetMonthModal()"
+            class="w-full min-h-[48px] rounded-[16px] bg-white border-2 border-dashed border-slate-300 hover:border-[#0F524B] hover:text-[#0F524B] active:scale-[0.99] text-slate-600 font-bold text-sm flex items-center justify-center gap-2 transition-all shadow-sm">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
+            </svg>
+            <span>開啟新月份（全部重置為未繳）</span>
+          </button>
+        </div>
+      </section>
+
+      <!-- ========================================================= -->
+      <!-- 分頁二：日常隨手記                                         -->
+      <!-- ========================================================= -->
+      <section id="sectionDaily" class="tab-content hidden space-y-4">
+        
+        <!-- 快速記帳輸入卡片 -->
+        <form id="dailyExpenseForm" onsubmit="handleAddDailyExpense(event)" class="bg-white rounded-[16px] p-4 shadow-card border border-slate-100 space-y-4">
+          
+          <!-- 金額輸入框 -->
+          <div>
+            <label for="dailyAmountInput" class="block text-xs font-bold text-slate-500 mb-1.5">消費金額</label>
+            <div class="relative flex items-center bg-[#F3F6F5] rounded-[14px] px-3.5 border-2 border-transparent focus-within:border-[#0F524B] focus-within:bg-white transition-all">
+              <span class="text-lg font-extrabold text-[#0F524B] mr-2 select-none">NT$</span>
+              <input 
+                id="dailyAmountInput" 
+                type="number" 
+                inputmode="numeric" 
+                pattern="[0-9]*"
+                min="1"
+                step="1"
+                placeholder="0" 
+                required
+                class="w-full h-[54px] bg-transparent text-2xl font-extrabold text-slate-800 placeholder-slate-300 focus:outline-none tabular-nums"
+              />
+            </div>
+          </div>
+
+          <!-- 分類標籤單選按鈕組 -->
+          <div>
+            <span class="block text-xs font-bold text-slate-500 mb-2">選擇分類</span>
+            <div id="categoryButtonsGroup" class="grid grid-cols-5 gap-1.5">
+              <!-- 由 JS 渲染 5 個大尺寸單選按鈕 -->
+            </div>
+          </div>
+
+          <!-- 備註輸入框（選填） -->
+          <div>
+            <label for="dailyNoteInput" class="block text-xs font-bold text-slate-500 mb-1.5">備註說明（選填）</label>
+            <input 
+              id="dailyNoteInput" 
+              type="text" 
+              maxlength="30"
+              placeholder="例如：午餐便當、超商咖啡、加油..." 
+              class="w-full h-[46px] bg-[#F3F6F5] rounded-[12px] px-3.5 text-slate-800 placeholder-slate-400 border border-transparent focus:border-[#0F524B] focus:bg-white focus:outline-none transition-all"
+            />
+          </div>
+
+          <!-- 送出按鈕 -->
+          <button 
+            type="submit"
+            class="w-full min-h-[50px] rounded-[14px] bg-gradient-to-r from-[#0F524B] to-[#156B62] hover:opacity-95 active:scale-[0.98] text-white font-bold text-base shadow-md flex items-center justify-center gap-2 transition-all">
+            <svg class="w-5 h-5 stroke-[2.5]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+            </svg>
+            <span>記一筆</span>
+          </button>
+        </form>
+
+        <!-- 下方日常明細標題與列表 -->
+        <div class="pb-4">
+          <div class="flex items-center justify-between px-1 mb-2.5">
+            <h2 class="text-sm font-bold text-slate-700">日常支出明細</h2>
+            <span id="dailyListSummary" class="text-xs font-medium text-slate-500">共 0 筆紀錄</span>
+          </div>
+
+          <div id="dailyListContainer" class="space-y-2.5">
+            <!-- 動態產生日常消費紀錄 -->
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- ========================================================= -->
+  <!-- 彈窗 1：新增 / 編輯固定支出項目 Modal                       -->
+  <!-- ========================================================= -->
+  <div id="fixedItemModal" class="fixed inset-0 z-50 hidden items-end sm:items-center justify-center bg-slate-900/50 backdrop-blur-[2px] p-0 sm:p-4">
+    <div class="bg-white w-full max-w-[480px] rounded-t-[24px] sm:rounded-[20px] p-5 pb-safe shadow-2xl transform transition-all">
+      <div class="flex items-center justify-between mb-4">
+        <h3 id="fixedModalTitle" class="text-lg font-extrabold text-slate-800">新增固定支出</h3>
+        <button type="button" onclick="closeFixedModal()" class="w-9 h-9 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center hover:bg-slate-200">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+
+      <form id="fixedItemForm" onsubmit="handleSaveFixedItem(event)" class="space-y-4">
+        <input type="hidden" id="editFixedId" value="" />
+        
+        <div>
+          <label for="fixedNameInput" class="block text-xs font-bold text-slate-600 mb-1.5">項目名稱</label>
+          <input 
+            id="fixedNameInput" 
+            type="text" 
+            required 
+            maxlength="24"
+            placeholder="例如：房租、水電費、健身房..." 
+            class="w-full h-[48px] bg-[#F3F6F5] rounded-[12px] px-3.5 text-slate-800 font-medium border-2 border-transparent focus:border-[#0F524B] focus:bg-white focus:outline-none"
+          />
+        </div>
+
+        <div>
+          <label for="fixedAmountInput" class="block text-xs font-bold text-slate-600 mb-1.5">每月固定金額 (NT$)</label>
+          <input 
+            id="fixedAmountInput" 
+            type="number" 
+            inputmode="numeric" 
+            pattern="[0-9]*"
+            min="0"
+            step="1"
+            required 
+            placeholder="0" 
+            class="w-full h-[50px] bg-[#F3F6F5] rounded-[12px] px-3.5 text-xl font-extrabold text-slate-800 border-2 border-transparent focus:border-[#0F524B] focus:bg-white focus:outline-none tabular-nums"
+          />
+        </div>
+
+        <div class="grid grid-cols-2 gap-3 pt-2">
+          <button 
+            type="button" 
+            onclick="closeFixedModal()" 
+            class="min-h-[48px] rounded-[12px] bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-sm transition-colors">
+            取消
+          </button>
+          <button 
+            type="submit" 
+            class="min-h-[48px] rounded-[12px] bg-[#0F524B] hover:bg-[#156B62] text-white font-bold text-sm shadow-sm transition-colors">
+            儲存項目
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ========================================================= -->
+  <!-- 彈窗 2：開啟新月份（重置確認）Modal                         -->
+  <!-- ========================================================= -->
+  <div id="resetMonthModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-900/50 backdrop-blur-[2px] p-4">
+    <div class="bg-white w-full max-w-[400px] rounded-[20px] p-5 shadow-2xl">
+      <div class="w-12 h-12 rounded-2xl bg-[#E7F2F0] text-[#0F524B] flex items-center justify-center mb-3">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
+        </svg>
+      </div>
+      <h3 class="text-lg font-extrabold text-slate-800">開啟新月份帳務？</h3>
+      <p class="text-sm text-slate-600 mt-1.5 leading-relaxed">
+        這將會把所有「每月固定支出」重置為<span class="font-bold text-[#0F524B]">未繳狀態</span>，方便您重新核對新月份的帳單。
+      </p>
+
+      <!-- 貼心選項：是否同步清空日常隨手記 -->
+      <label class="mt-4 flex items-center gap-3 p-3 rounded-[12px] bg-[#F3F6F5] cursor-pointer select-none">
+        <input id="alsoClearDailyCheckbox" type="checkbox" class="w-5 h-5 rounded accent-[#0F524B] cursor-pointer" />
+        <span class="text-sm font-medium text-slate-700">同時清空「日常隨手記」明細</span>
+      </label>
+
+      <div class="grid grid-cols-2 gap-3 mt-5">
+        <button 
+          type="button" 
+          onclick="closeResetMonthModal()" 
+          class="min-h-[46px] rounded-[12px] bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-sm">
+          先不要
+        </button>
+        <button 
+          type="button" 
+          onclick="confirmResetMonth()" 
+          class="min-h-[46px] rounded-[12px] bg-[#0F524B] hover:bg-[#156B62] text-white font-bold text-sm shadow-sm">
+          確認重置
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================= -->
+  <!-- 彈窗 3：自訂刪除確認 Modal (取代原生 confirm)              -->
+  <!-- ========================================================= -->
+  <div id="deleteConfirmModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-900/50 backdrop-blur-[2px] p-4">
+    <div class="bg-white w-full max-w-[360px] rounded-[20px] p-5 shadow-2xl">
+      <div class="w-11 h-11 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center mb-3">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+        </svg>
+      </div>
+      <h3 class="text-base font-extrabold text-slate-800">確定要刪除此筆項目嗎？</h3>
+      <p id="deleteConfirmMessage" class="text-sm text-slate-600 mt-1">刪除後將無法復原。</p>
+      <div class="grid grid-cols-2 gap-3 mt-5">
+        <button 
+          type="button" 
+          onclick="closeDeleteModal()" 
+          class="min-h-[44px] rounded-[12px] bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-sm">
+          取消
+        </button>
+        <button 
+          type="button" 
+          id="confirmDeleteBtn"
+          class="min-h-[44px] rounded-[12px] bg-rose-600 hover:bg-rose-700 text-white font-bold text-sm shadow-sm">
+          確認刪除
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 輕量級底部 Toast 提示訊息 -->
+  <div id="toastNotification" class="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 pointer-events-none opacity-0 transition-all duration-300 transform translate-y-3">
+    <div class="bg-slate-800/95 text-white px-4 py-2.5 rounded-full shadow-lg flex items-center gap-2 text-sm font-semibold backdrop-blur-sm whitespace-nowrap">
+      <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+      </svg>
+      <span id="toastText">已記錄！</span>
+    </div>
+  </div>
+
+  <script>
+    /**
+     * =========================================================================
+     * 應用程式狀態與常數定義
+     * =========================================================================
+     */
+    const STORAGE_KEYS = {
+      FIXED: 'liff_tracker_fixed_expenses_v1',
+      DAILY: 'liff_tracker_daily_expenses_v1'
+    };
+
+    // 初次開啟預設固定支出範例
+    const DEFAULT_FIXED_ITEMS = [
+      { id: 'fix_1', name: '電信網路費', amount: 999, paid: false },
+      { id: 'fix_2', name: '保險費', amount: 2500, paid: false },
+      { id: 'fix_3', name: '訂閱服務', amount: 650, paid: false },
+      { id: 'fix_4', name: '停車交通費', amount: 2000, paid: false }
+    ];
+
+    // 日常隨手記分類配置（含圖示與色彩標籤）
+    const DAILY_CATEGORIES = [
+      { id: '餐飲', label: '餐飲', badgeBg: 'bg-amber-50', badgeText: 'text-amber-700', emoji: '🍱' },
+      { id: '交通', label: '交通', badgeBg: 'bg-sky-50', badgeText: 'text-sky-700', emoji: '🚇' },
+      { id: '購物', label: '購物', badgeBg: 'bg-rose-50', badgeText: 'text-rose-700', emoji: '🛍️' },
+      { id: '生活', label: '生活', badgeBg: 'bg-emerald-50', badgeText: 'text-emerald-700', emoji: '🏠' },
+      { id: '其他', label: '其他', badgeBg: 'bg-slate-100', badgeText: 'text-slate-700', emoji: '✨' }
+    ];
+
+    let fixedItems = [];
+    let dailyItems = [];
+    let selectedCategory = '餐飲';
+    let pendingDeleteCallback = null;
+    let toastTimer = null;
+
+    /**
+     * =========================================================================
+     * 初始化與資料讀寫 (localStorage)
+     * =========================================================================
+     */
+    function initApp() {
+      updateCurrentMonthDisplay();
+      loadDataFromStorage();
+      renderCategoryButtons();
+      renderAll();
+    }
+
+    // 顯示當前年月標題
+    function updateCurrentMonthDisplay() {
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = now.getMonth() + 1;
+      const labelEl = document.getElementById('currentMonthLabel');
+      if (labelEl) {
+        labelEl.textContent = `${year}年 ${month}月 帳務總覽`;
+      }
+    }
+
+    // 安全讀取 localStorage
+    function loadDataFromStorage() {
+      try {
+        const savedFixed = localStorage.getItem(STORAGE_KEYS.FIXED);
+        if (savedFixed !== null) {
+          fixedItems = JSON.parse(savedFixed);
+        } else {
+          // 首次使用載入預設 4 筆
+          fixedItems = [...DEFAULT_FIXED_ITEMS];
+          saveFixedItems();
+        }
+
+        const savedDaily = localStorage.getItem(STORAGE_KEYS.DAILY);
+        if (savedDaily !== null) {
+          dailyItems = JSON.parse(savedDaily);
+        } else {
+          dailyItems = [];
+        }
+      } catch (err) {
+        console.error('讀取本機儲存失敗:', err);
+        fixedItems = [...DEFAULT_FIXED_ITEMS];
+        dailyItems = [];
+      }
+    }
+
+    function saveFixedItems() {
+      try {
+        localStorage.setItem(STORAGE_KEYS.FIXED, JSON.stringify(fixedItems));
+      } catch (err) {
+        console.error('儲存固定支出失敗:', err);
+      }
+    }
+
+    function saveDailyItems() {
+      try {
+        localStorage.setItem(STORAGE_KEYS.DAILY, JSON.stringify(dailyItems));
+      } catch (err) {
+        console.error('儲存日常支出失敗:', err);
+      }
+    }
+
+    // 千分位金額格式化
+    function formatCurrency(num) {
+      return Number(num || 0).toLocaleString('zh-TW');
+    }
+
+    // XSS 防護字元轉義
+    function escapeHtml(str) {
+      const div = document.createElement('div');
+      div.textContent = str;
+      return div.innerHTML;
+    }
+
+    /**
+     * =========================================================================
+     * 畫面渲染核心邏輯
+     * =========================================================================
+     */
+    function renderAll() {
+      updateSummaryHeader();
+      renderFixedList();
+      renderDailyList();
+    }
+
+    // 更新頂部統計卡片金額
+    function updateSummaryHeader() {
+      const paidFixedList = fixedItems.filter(item => item.paid);
+      const totalFixedPaid = paidFixedList.reduce((sum, item) => sum + Number(item.amount), 0);
+      const totalFixedExpected = fixedItems.reduce((sum, item) => sum + Number(item.amount), 0);
+      const totalDaily = dailyItems.reduce((sum, item) => sum + Number(item.amount), 0);
+      const grandTotal = totalFixedPaid + totalDaily;
+
+      document.getElementById('totalMonthExpense').textContent = formatCurrency(grandTotal);
+      document.getElementById('totalFixedPaid').textContent = formatCurrency(totalFixedPaid);
+      document.getElementById('fixedCountBadge').textContent = `${paidFixedList.length} / ${fixedItems.length}`;
+      
+      document.getElementById('totalDailyExpense').textContent = formatCurrency(totalDaily);
+      document.getElementById('dailyCountBadge').textContent = `${dailyItems.length} 筆`;
+
+      const expectedEl = document.getElementById('fixedExpectedTotal');
+      if (expectedEl) {
+        expectedEl.textContent = formatCurrency(totalFixedExpected);
+      }
+    }
+
+    // 渲染分頁一：每月固定支出清單
+    function renderFixedList() {
+      const container = document.getElementById('fixedListContainer');
+      if (!container) return;
+
+      if (fixedItems.length === 0) {
+        container.innerHTML = `
+          <div class="bg-white rounded-[16px] p-8 text-center shadow-card border border-slate-100">
+            <p class="text-slate-400 text-sm font-medium">目前尚無固定支出項目</p>
+            <p class="text-slate-400 text-xs mt-1">點擊上方「＋ 新增項目」開始建立您的每月固定帳單</p>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = fixedItems.map(item => {
+        const isPaid = Boolean(item.paid);
+        return `
+          <div 
+            onclick="toggleFixedPaid('${item.id}')"
+            class="group bg-white rounded-[16px] p-3.5 shadow-card border transition-all duration-200 cursor-pointer select-none flex items-center justify-between gap-2 active:scale-[0.99] ${
+              isPaid ? 'border-[#0F524B]/30 bg-[#F9FCFB]' : 'border-slate-100 hover:border-slate-200'
+            }">
+            
+            <!-- 左側核取方塊與名稱金額 -->
+            <div class="flex items-center gap-3 min-w-0 flex-1">
+              <!-- 自訂大尺寸核取方塊 -->
+              <div class="w-7 h-7 rounded-[9px] flex-shrink-0 flex items-center justify-center transition-colors ${
+                isPaid 
+                  ? 'bg-[#0F524B] text-white shadow-sm' 
+                  : 'border-2 border-slate-300 bg-slate-50 group-hover:border-[#0F524B]/50'
+              }">
+                ${isPaid ? `
+                  <svg class="w-4 h-4 stroke-[3]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                  </svg>
+                ` : ''}
+              </div>
+
+              <!-- 項目名稱與狀態標籤 -->
+              <div class="min-w-0 flex-1">
+                <div class="flex items-center gap-2">
+                  <span class="font-bold text-base truncate ${isPaid ? 'text-slate-500 line-through decoration-slate-300' : 'text-slate-800'}">
+                    ${escapeHtml(item.name)}
+                  </span>
+                  <span class="text-[11px] px-2 py-0.5 rounded-full font-bold flex-shrink-0 ${
+                    isPaid 
+                      ? 'bg-[#E7F2F0] text-[#0F524B]' 
+                      : 'bg-amber-50 text-amber-700'
+                  }">
+                    ${isPaid ? '已繳' : '未繳'}
+                  </span>
+                </div>
+                <div class="mt-0.5 text-base font-extrabold tabular-nums ${isPaid ? 'text-[#0F524B]' : 'text-slate-700'}">
+                  NT$ ${formatCurrency(item.amount)}
+                </div>
+              </div>
+            </div>
+
+            <!-- 右側編輯與刪除按鈕（阻止冒泡避免觸發打勾） -->
+            <div class="flex items-center gap-1 flex-shrink-0" onclick="event.stopPropagation()">
+              <button 
+                type="button"
+                aria-label="編輯項目"
+                onclick="openFixedModal('${item.id}')"
+                class="w-11 h-11 rounded-[12px] text-slate-400 hover:text-[#0F524B] hover:bg-[#E7F2F0] active:bg-[#E7F2F0] flex items-center justify-center transition-colors">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L6.832 19.82a4.5 4.5 0 01-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 011.13-1.897L16.863 4.487zm0 0L19.5 7.125" />
+                </svg>
+              </button>
+              <button 
+                type="button"
+                aria-label="刪除項目"
+                onclick="requestDeleteFixedItem('${item.id}')"
+                class="w-11 h-11 rounded-[12px] text-slate-400 hover:text-rose-600 hover:bg-rose-50 active:bg-rose-50 flex items-center justify-center transition-colors">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // 渲染分頁二：分類單選按鈕
+    function renderCategoryButtons() {
+      const group = document.getElementById('categoryButtonsGroup');
+      if (!group) return;
+
+      group.innerHTML = DAILY_CATEGORIES.map(cat => {
+        const isSelected = selectedCategory === cat.id;
+        return `
+          <button
+            type="button"
+            onclick="selectDailyCategory('${cat.id}')"
+            class="min-h-[46px] rounded-[12px] font-bold text-xs flex flex-col items-center justify-center gap-0.5 transition-all active:scale-95 ${
+              isSelected 
+                ? 'bg-[#0F524B] text-white shadow-sm' 
+                : 'bg-[#F3F6F5] text-slate-600 hover:bg-slate-200/70'
+            }">
+            <span class="text-sm leading-none">${cat.emoji}</span>
+            <span>${cat.label}</span>
+          </button>
+        `;
+      }).join('');
+    }
+
+    // 渲染分頁二：日常支出明細清單
+    function renderDailyList() {
+      const container = document.getElementById('dailyListContainer');
+      const summaryEl = document.getElementById('dailyListSummary');
+      if (!container) return;
+
+      if (summaryEl) {
+        summaryEl.textContent = `共 ${dailyItems.length} 筆紀錄`;
+      }
+
+      if (dailyItems.length === 0) {
+        container.innerHTML = `
+          <div class="bg-white rounded-[16px] p-8 text-center shadow-card border border-slate-100">
+            <div class="w-12 h-12 rounded-full bg-[#F3F6F5] text-slate-400 flex items-center justify-center mx-auto mb-2.5 text-xl">
+              🧾
+            </div>
+            <p class="text-slate-500 text-sm font-bold">尚無日常支出紀錄</p>
+            <p class="text-slate-400 text-xs mt-1">在上方輸入金額與分類，隨時記下一筆花費！</p>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = dailyItems.map(item => {
+        const catObj = DAILY_CATEGORIES.find(c => c.id === item.category) || DAILY_CATEGORIES[4];
+        const displayTitle = item.note && item.note.trim() !== '' ? item.note : item.category;
+
+        return `
+          <div class="bg-white rounded-[16px] p-3.5 shadow-card border border-slate-100 flex items-center justify-between gap-3">
+            <div class="flex items-center gap-3 min-w-0 flex-1">
+              <!-- 分類圖示圓章 -->
+              <div class="w-11 h-11 rounded-[12px] ${catObj.badgeBg} flex items-center justify-center text-lg flex-shrink-0">
+                ${catObj.emoji}
+              </div>
+
+              <!-- 備註/標題 與 分類標籤/時間 -->
+              <div class="min-w-0 flex-1">
+                <p class="font-bold text-slate-800 text-base truncate">
+                  ${escapeHtml(displayTitle)}
+                </p>
+                <div class="flex items-center gap-2 mt-0.5">
+                  <span class="text-[11px] font-bold px-2 py-0.5 rounded-md ${catObj.badgeBg} ${catObj.badgeText}">
+                    ${escapeHtml(item.category)}
+                  </span>
+                  <span class="text-xs text-slate-400 font-medium tabular-nums">
+                    ${escapeHtml(item.timeStr)}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <!-- 金額與刪除按鈕 -->
+            <div class="flex items-center gap-1.5 flex-shrink-0">
+              <span class="font-extrabold text-base text-slate-800 tabular-nums">
+                NT$ ${formatCurrency(item.amount)}
+              </span>
+              <button 
+                type="button"
+                aria-label="刪除此筆紀錄"
+                onclick="requestDeleteDailyItem('${item.id}')"
+                class="w-10 h-10 rounded-[10px] text-slate-400 hover:text-rose-600 hover:bg-rose-50 active:bg-rose-50 flex items-center justify-center transition-colors">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    /**
+     * =========================================================================
+     * 分頁切換互動
+     * =========================================================================
+     */
+    function switchTab(tabName) {
+      const btnFixed = document.getElementById('tabBtnFixed');
+      const btnDaily = document.getElementById('tabBtnDaily');
+      const secFixed = document.getElementById('sectionFixed');
+      const secDaily = document.getElementById('sectionDaily');
+
+      if (tabName === 'fixed') {
+        btnFixed.className = 'min-h-[46px] rounded-[12px] font-bold text-sm flex items-center justify-center gap-2 transition-all duration-200 bg-[#0F524B] text-white shadow-sm';
+        btnDaily.className = 'min-h-[46px] rounded-[12px] font-bold text-sm flex items-center justify-center gap-2 transition-all duration-200 text-slate-600 hover:bg-slate-50';
+        secFixed.classList.remove('hidden');
+        secDaily.classList.add('hidden');
+      } else {
+        btnDaily.className = 'min-h-[46px] rounded-[12px] font-bold text-sm flex items-center justify-center gap-2 transition-all duration-200 bg-[#0F524B] text-white shadow-sm';
+        btnFixed.className = 'min-h-[46px] rounded-[12px] font-bold text-sm flex items-center justify-center gap-2 transition-all duration-200 text-slate-600 hover:bg-slate-50';
+        secDaily.classList.remove('hidden');
+        secFixed.classList.add('hidden');
+      }
+    }
+
+    /**
+     * =========================================================================
+     * 分頁一互動：打勾、新增、編輯、刪除、開啟新月份
+     * =========================================================================
+     */
+    function toggleFixedPaid(id) {
+      const target = fixedItems.find(item => item.id === id);
+      if (!target) return;
+      target.paid = !target.paid;
+      saveFixedItems();
+      renderAll();
+    }
+
+    // 開啟新增或編輯固定項目 Modal
+    function openFixedModal(id = null) {
+      const modal = document.getElementById('fixedItemModal');
+      const titleEl = document.getElementById('fixedModalTitle');
+      const idInput = document.getElementById('editFixedId');
+      const nameInput = document.getElementById('fixedNameInput');
+      const amountInput = document.getElementById('fixedAmountInput');
+
+      if (id) {
+        const item = fixedItems.find(i => i.id === id);
+        if (!item) return;
+        titleEl.textContent = '編輯固定支出';
+        idInput.value = item.id;
+        nameInput.value = item.name;
+        amountInput.value = item.amount;
+      } else {
+        titleEl.textContent = '新增固定支出';
+        idInput.value = '';
+        nameInput.value = '';
+        amountInput.value = '';
+      }
+
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+      setTimeout(() => nameInput.focus(), 100);
+    }
+
+    function closeFixedModal() {
+      const modal = document.getElementById('fixedItemModal');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+
+    function handleSaveFixedItem(event) {
+      event.preventDefault();
+      const id = document.getElementById('editFixedId').value;
+      const name = document.getElementById('fixedNameInput').value.trim();
+      const amount = Math.max(0, Math.round(Number(document.getElementById('fixedAmountInput').value)));
+
+      if (!name) return;
+
+      if (id) {
+        // 編輯模式
+        const target = fixedItems.find(i => i.id === id);
+        if (target) {
+          target.name = name;
+          target.amount = amount;
+          showToast('已更新固定項目');
+        }
+      } else {
+        // 新增模式
+        const newItem = {
+          id: 'fix_' + Date.now(),
+          name,
+          amount,
+          paid: false
+        };
+        fixedItems.push(newItem);
+        showToast('已新增固定項目');
+      }
+
+      saveFixedItems();
+      renderAll();
+      closeFixedModal();
+    }
+
+    function requestDeleteFixedItem(id) {
+      const item = fixedItems.find(i => i.id === id);
+      if (!item) return;
+      openDeleteModal(`確定要刪除「${item.name}」嗎？`, () => {
+        fixedItems = fixedItems.filter(i => i.id !== id);
+        saveFixedItems();
+        renderAll();
+        showToast('已刪除項目');
+      });
+    }
+
+    // 開啟新月份 Modal 控制
+    function openResetMonthModal() {
+      document.getElementById('alsoClearDailyCheckbox').checked = false;
+      const modal = document.getElementById('resetMonthModal');
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+
+    function closeResetMonthModal() {
+      const modal = document.getElementById('resetMonthModal');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+
+    function confirmResetMonth() {
+      const alsoClearDaily = document.getElementById('alsoClearDailyCheckbox').checked;
+      
+      // 全部固定支出重置為未繳
+      fixedItems = fixedItems.map(item => ({ ...item, paid: false }));
+      saveFixedItems();
+
+      if (alsoClearDaily) {
+        dailyItems = [];
+        saveDailyItems();
+      }
+
+      renderAll();
+      closeResetMonthModal();
+      showToast(alsoClearDaily ? '已開啟新月份並清空日常明細' : '已全部重置為未繳狀態');
+    }
+
+    /**
+     * =========================================================================
+     * 分頁二互動：選擇分類、記一筆、刪除單筆紀錄
+     * =========================================================================
+     */
+    function selectDailyCategory(catId) {
+      selectedCategory = catId;
+      renderCategoryButtons();
+    }
+
+    function formatNowTime() {
+      const now = new Date();
+      const mm = String(now.getMonth() + 1).padStart(2, '0');
+      const dd = String(now.getDate()).padStart(2, '0');
+      const hh = String(now.getHours()).padStart(2, '0');
+      const min = String(now.getMinutes()).padStart(2, '0');
+      return `${mm}/${dd} ${hh}:${min}`;
+    }
+
+    function handleAddDailyExpense(event) {
+      event.preventDefault();
+      const amountInput = document.getElementById('dailyAmountInput');
+      const noteInput = document.getElementById('dailyNoteInput');
+
+      const amount = Math.round(Number(amountInput.value));
+      if (!amount || amount <= 0) {
+        amountInput.focus();
+        return;
+      }
+
+      const newRecord = {
+        id: 'day_' + Date.now(),
+        amount,
+        category: selectedCategory,
+        note: noteInput.value.trim(),
+        timeStr: formatNowTime()
+      };
+
+      // 新紀錄插入最上方
+      dailyItems.unshift(newRecord);
+      saveDailyItems();
+
+      // 清空輸入欄位
+      amountInput.value = '';
+      noteInput.value = '';
+      amountInput.blur();
+
+      renderAll();
+      showToast('已記錄！');
+    }
+
+    function requestDeleteDailyItem(id) {
+      const item = dailyItems.find(i => i.id === id);
+      if (!item) return;
+      const label = item.note ? `${item.category}（${item.note}）` : item.category;
+      openDeleteModal(`確定要刪除「${label} NT$ ${formatCurrency(item.amount)}」嗎？`, () => {
+        dailyItems = dailyItems.filter(i => i.id !== id);
+        saveDailyItems();
+        renderAll();
+        showToast('已刪除該筆紀錄');
+      });
+    }
+
+    /**
+     * =========================================================================
+     * 通用自訂確認彈窗與 Toast 提示
+     * =========================================================================
+     */
+    function openDeleteModal(message, onConfirm) {
+      document.getElementById('deleteConfirmMessage').textContent = message;
+      pendingDeleteCallback = onConfirm;
+      const modal = document.getElementById('deleteConfirmModal');
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+
+    function closeDeleteModal() {
+      const modal = document.getElementById('deleteConfirmModal');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+      pendingDeleteCallback = null;
+    }
+
+    document.getElementById('confirmDeleteBtn').addEventListener('click', () => {
+      if (typeof pendingDeleteCallback === 'function') {
+        pendingDeleteCallback();
+      }
+      closeDeleteModal();
+    });
+
+    function showToast(message) {
+      const toast = document.getElementById('toastNotification');
+      const textEl = document.getElementById('toastText');
+      textEl.textContent = message;
+
+      toast.classList.remove('opacity-0', 'translate-y-3');
+      toast.classList.add('opacity-100', 'translate-y-0');
+
+      if (toastTimer) clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => {
+        toast.classList.add('opacity-0', 'translate-y-3');
+        toast.classList.remove('opacity-100', 'translate-y-0');
+      }, 2000);
+    }
+
+    // 啟動應用程式
+    window.addEventListener('DOMContentLoaded', initApp);
+  </script>
+</body>
+</html>
